@@ -1,5 +1,3 @@
-This article describe the default test that are run with the  `template test toolkit`.
-
 # ARM TTK
 The ARM Template Tool Kit is a new static code analyser for ARM templates created by Microsoft. It's an open-source PowerShell library that you can use to validate your templates against a series of test cases. These test cases are generic and designed to validate that your templates are following best practice, a little like the PowerShell PSScriptAnalyzer tool. The ARM TTK tests for things like:
 
