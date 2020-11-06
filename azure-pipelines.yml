@@ -1,0 +1,113 @@
+name: "AZURE ARM TEMPLATE TESTING"
+
+parameters:
+    - name: vmImage
+      displayName: "Virtual Machine OS "
+      type: string
+      default: "ubuntu-16.04"
+      values:
+        - ubuntu-16.04
+        - ubuntu-20.04
+        - ubuntu-latest
+
+    - name: azureServicePrincipal
+      displayName: "Azure Service Principal Name "
+      default: "armtemplate"
+      type: string
+
+    - name: azureSubscriptionId
+      displayName: "Azure Subscription Id "
+      default: ""
+      type: string
+
+    - name: azureTenantId
+      displayName: "Azure Tenant Id "
+      default: ""
+      type: string
+
+    - name: azureResourceGroupName
+      displayName: "Azure Resource Group Name (If RG doesn't exist , one will be created)"
+      default: "azuredevops"
+      type: string
+
+    - name: azureResourceGroupLocation
+      displayName: "Azure Resource Group Location "
+      default: "southcentralus"
+      type: string
+      values:
+        - eastus2
+        - eastus
+        - westus
+        - centralus
+        - northcentralus
+        - southcentralus
+        - westcentralus
+        - westus2
+
+    - name: azureMainTemplate
+      displayName: "Azure ARM main Template "
+      default: "linux.deploy.demo.json"
+      type: string
+  
+    - name: azureParametersTemplate
+      displayName: "Azure ARM parameters file (*Optional)"
+      default: " "
+      type: string
+
+    - name: skipBestPracticesTest
+      displayName: "skip test following by comma example : 'Location Should Not Be Hardcoded,Secure String Parameters Cannot Have Default'"
+      default: "Location Should Not Be Hardcoded,Secure String Parameters Cannot Have Default"
+      type: string
+      
+
+variables:
+  - name: azureTtkVmOs
+    value: "windows-latest"
+    readonly: true
+
+stages:
+    - stage: 
+      displayName: "AZURE ARM TTK"
+      jobs:
+        - job: 
+          displayName: "JOB AZURE TTTK"
+          pool:
+              vmImage: ${{ variables.azureTtkVmOs }}
+          steps:
+            - task: RunARMTTKTests@1
+              displayName: "EVALUATE AZURE ARM BEST PRACTICES "
+              continueOnError: true
+              inputs:
+                  templatelocation: '$(System.DefaultWorkingDirectory)\azure-templates'
+                  resultLocation: '$(System.DefaultWorkingDirectory)\results'
+                  skipTests: ${{ parameters.skipBestPracticesTest }}
+
+            - task: PublishTestResults@2
+              displayName: "GENERATE REPORT"
+              condition: always()
+              inputs:
+                  testResultsFormat: 'NUnit'
+                  testResultsFiles: '$(System.DefaultWorkingDirectory)\results\*-armttk.xml'
+
+
+    - stage: 
+      displayName: "AZURE WHATIF & EVALUTE RG TEMPLATE"
+      condition: always()
+      jobs:
+        - job: 
+          displayName: "JOB AZURE WHATIF & EVALUTE RG TEMPLATE"
+          pool:
+              vmImage: ${{ parameters.vmImage }}
+          steps:
+            - task: AzurePowerShell@5
+              condition: always()
+              displayName: "AZURE WHATIF & EVALUTE RG TEMPLATE "
+              inputs: 
+                azureSubscription: ${{ parameters.azureServicePrincipal }}
+                ScriptType: FilePath
+                ScriptPath: './arm.testing.ps1'
+                ScriptArguments:  -subscriptionId "${{ parameters.azureSubscriptionId }}" -tenantId "${{ parameters.azureTenantId }}" -resourceGroupName "${{ parameters.azureResourceGroupName }}" -resourceGroupLocation "${{ parameters.azureResourceGroupLocation }}" -mainFileTemplate "${{ parameters.azureMainTemplate }}" -parametersFileName "${{ parameters.azureParametersTemplate }}"
+                azurePowerShellVersion: 'LatestVersion'
+                FailOnStandardError : true
+
+
